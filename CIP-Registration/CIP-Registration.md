@@ -31,15 +31,19 @@ We therefore need a registration transaction that serves three purposes:
 
 A voting key is simply an ED25519 key. How this key is created is up to the wallet.
 
-### Associating stake with a voting key
+### Interim registration method: associating stake with a voting key
+
+This method has been used for Fund 2 and will be used for Fund 3.
+For future fund iterations, a new method making use of time-lock scripts will
+be used as described in the section below.
 
 Recall: Cardano uses the UTXO model so to completely associate a wallet's balance with a voting key (i.e. including enterprise addresses), we would need to associate every payment key to a voting key individually. Although there are attempts at this (see [CIP8](../CIP-0008/CIP-0008.md)), the resulting data structure is a little excessive for on-chain metadata (which we want to keep small)
 
 Given the above, we choose to only associate staking keys with voting keys. Since most Cardano wallets only use base addresses for Shelley wallet types, in most cases this should perfectly match the user's wallet.
 
-### Registration metadata format
+#### Registration metadata format with a stake public key
 
-A Catalyst registration transaction are a regular Cardano transaction with a specific transaction metadata associated with it
+A Catalyst registration transaction for funds 2 and 3 is a regular Cardano transaction with a specific transaction metadata associated with it.
 
 Notably, there should be three entries inside the metadata map:
 
@@ -63,12 +67,35 @@ Signing the voting public key with the staking private key
 }
 ```
 
-This corresponds to the following CDDL definition
+### Evolved registration method: locking funds for the governance period
+
+Starting from Fund 4, it is planned to use a time-lock script (documentation TBA) to commit ADA on the mainnet for the duration of a voting period. The voter registration metadata in this method does not need an association
+with the staking key.
+
+#### Registration metadata format with token locking
+
+A Catalyst registration transaction is a Cardano transaction with an output locked by a multisig script, with the time locks preventing spending of the output during the voting period, and specific transaction metadata providing the voting public key and the address for receiving rewards.
+
+There should be two entries inside the metadata map:
+
+Voting key registration
+```
+61284: {
+  // voting_key - CBOR byte array
+  1: "0xa6a3c0447aeb9cc54cf6422ba32b294e5e1c3ef6d782f2acff4a70694c4d1663",
+  // address - CBOR byte array
+  3: "0x00588e8e1d18cba576a4d35758069fe94e53f638b6faf7c07b8abd2bc5c5cdee47b60edc7772855324c85033c638364214cbfc6627889f81c4"
+}
+```
+
+### Metadata schema
+
+The two formats above can be described by the following CDDL definition, where optional fields are deprecated in the voter registration metadata format used since Fund 4.
 
 ```
 registration_cbor = {
-  61284: key_registration
-, 61285: registration_signature
+  61284: key_registration,
+  ? 61285: registration_signature
 }
 
 $voting_pub_key /= bytes .size 32
@@ -77,9 +104,9 @@ $ed25519_signature /= bytes .size 64
 $address /= bytes
 
 key_registration = {
-  1 : $voting_pub_key
-, 2 : $staking_pub_key
-, 3 : $address
+  1 : $voting_pub_key,
+  ? 2 : $staking_pub_key,
+  3 : $address
 }
 
 registration_signature = {
@@ -93,17 +120,17 @@ Here an example using CBOR diagnostic notation
 {
   61284: {
     1: h'8253C95609BC62C0443276FE2A1872B87CB11C06185FFDBB56C7CE8352EEF2A3',
-    2: h'345080C6DDFF7154B4ED4A622558AA0EAABD8CE7E2701C92B6858EA76DCECBCE'
+    3: h'00588E8E1D18CBA576A4D35758069FE94E53F638B6FAF7C07B8ABD2BC5C5CDEE47B60EDC7772855324C85033C638364214CBFC6627889F81C4'
   },
-  61285: {
-    1: h'7D88F34D778B7A4C76AA53FF5D9506DC5B92D25575B43AF75D66DC05082A2BCFF44FCEDDAB15DBA0C23C56A09A15367A9803E24A388AAFB8498EF72190407B0D'
-  }
 }
 ```
 
 ## Changelog
 
 Fund 3 added the `address` inside the `key_registration` field.
+
+Since Fund 4, `registration_signature` and the `staking_pub_key` entry inside
+the `key_registration` field are deprecated and should no longer be used.
 
 ## Copyright
 
